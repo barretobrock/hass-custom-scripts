@@ -6,6 +6,7 @@ nws_min_temps.py
     - If temps that have gone under freezing come back above it within the window, notes the timestamp they end
 
 """
+import datetime
 import json
 import os
 import pathlib
@@ -35,15 +36,20 @@ def gather_data():
     periods = data['properties']['periods']
 
     temps = []
-    freezing_temps_start_timestamp = freezing_temps_end_timestamp = None
+    freezing_temps_start_timestamp = freezing_temps_end_timestamp = freezing_temps_duration = None
 
     for i, period in enumerate(periods[:NEXT_N_HOURS]):
         temp_c = convert_to_c(period['temperature'])
         temps.append(temp_c)
         if freezing_temps_start_timestamp is None and temp_c < 0:
+            # Capture only first hour of below-zero temps
             freezing_temps_start_timestamp = period['startTime']
-        if freezing_temps_start_timestamp is not None and temp_c > 0:
+        if freezing_temps_start_timestamp is not None and freezing_temps_end_timestamp is None and temp_c > 0:
             freezing_temps_end_timestamp = period['endTime']
+    if freezing_temps_start_timestamp is not None and freezing_temps_end_timestamp is not None:
+        start = datetime.datetime.strptime(freezing_temps_start_timestamp, '%Y-%m-%dT%H:%M:%S%z')
+        end = datetime.datetime.strptime(freezing_temps_end_timestamp, '%Y-%m-%dT%H:%M:%S%z')
+        freezing_temps_duration = (end - start).total_seconds() / 60 / 60
 
     min_temp = min(temps)
 
@@ -60,7 +66,8 @@ def gather_data():
                 'unit_of_measurement': '°C',
                 'friendly_name': 'NWS Upcoming Min Temp',
                 'freezing_temp_starts': freezing_temps_start_timestamp,
-                'freezing_temp_ends': freezing_temps_end_timestamp
+                'freezing_temp_ends': freezing_temps_end_timestamp,
+                'freezing_temp_duration': freezing_temps_duration
             }
         })
     )
