@@ -34,6 +34,7 @@ def gather_data():
     data = resp.json()
     # Get the hourly forecasts
     periods = data['properties']['periods']
+    current_period = periods[0]
 
     temps = []
     freezing_temps_start_timestamp = freezing_temps_end_timestamp = freezing_temps_duration = None
@@ -68,6 +69,25 @@ def gather_data():
                 'freezing_temp_starts': freezing_temps_start_timestamp,
                 'freezing_temp_ends': freezing_temps_end_timestamp,
                 'freezing_temp_duration': freezing_temps_duration
+            }
+        })
+    )
+    # Send current weather detail
+    resp = requests.post(
+        f'http://{hass_domain}/api/states/sensor.nws_current',
+        headers={
+            'Authorization': f'Bearer {hass_token}',
+            'content-type': 'application/json'
+        },
+        data=json.dumps({
+            'state': round(convert_to_c(current_period['temperature']), 1),
+            'attributes': {
+                'unit_of_measurement': '°C',
+                'wind_speed_mph': round(float(current_period['windSpeed'].replace(' mph', '')), 1),
+                'short_forecast': current_period['shortForecast'],
+                'humidity': current_period['relativeHumidity']['value'],
+                'dewpoint': round(current_period['dewpoint']['value'], 1),
+                'precip_probability': round(current_period['probabilityOfPrecipitation']['value'])
             }
         })
     )
